@@ -8,8 +8,11 @@
 **/.idea/workspace.xml
 **/target/
 
-**/obj/
-obj/
+obj/Debug
+obj/project.nuget.cache
+obj/RunReport.csproj.nuget.dgspec.json
+obj/RunReport.csproj.nuget.g.props
+obj/RunReport.csproj.nuget.g.targets
 **/vs/
 
 *.swp
@@ -37,7 +40,6 @@ x86/
 build/
 bld/
 [Bb]in/
-[Oo]bj/
 msbuild.log
 msbuild.err
 msbuild.wrn
