@@ -1,1 +1,1 @@
-msbuild RunReport.sln & bin\Debug\netcoreapp3.0\RunReport.exe files\Manufacturing.docx files\output.docx -xml:MANF_DATA_2009 files\Manufacturing.xml & pause
+dotnet restore & msbuild RunReport.sln & bin\Debug\netcoreapp3.0\RunReport.exe files\Manufacturing.docx files\output.docx -xml:MANF_DATA_2009 files\Manufacturing.xml & pause
