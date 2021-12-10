@@ -5,6 +5,6 @@ This is just a sample app demonsrating the functionality of the .NET Core client
 ## Usage
 Refer to https://app.swaggerhub.com/apis/Windward-Studios/windward-rest_ful_api/2.0#/ to see the object structure and heirarchy in the client.
 
-To build and run the sample application, just run the provided run.bat file.
+To build and run the sample application, just run the provided run.bat file. You will need to set the adddress of your RESTful engine in the config file under the variable "url".
 
 
