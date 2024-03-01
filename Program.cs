@@ -43,6 +43,17 @@ namespace RunReport
 			Console.Out.WriteLine($"Connecting to URL {url}");
 			client = new WindwardClient(new Uri(url));
 			VersionInfo version = await client.GetVersion();
+			string licenseKey = ConfigurationManager.AppSettings["licenseKey"];
+            if (string.IsNullOrEmpty(licenseKey) || licenseKey.Equals("[LICENSEKEY]"))
+            {
+                logWriter.Warn("License key not set in App.config. If the license is not set on your engine server, the engine will respond with 401 errors.");
+            }
+            else
+            {
+                client.LicenseKey = licenseKey;
+            }
+
+            
 			Console.Out.WriteLine($"REST server version = {version}");
 
 			// if no arguments, then we list out the usage.
