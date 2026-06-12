@@ -107,8 +107,8 @@ namespace RunReport
 
                     Console.Out.WriteLine($"Start time: {startTime.ToLongTimeString()}, {numThreads} threads, {cmdLine.NumReports} reports");
 					Console.Out.WriteLine();
-					for (int ind = 0; ind < numThreads; ind++)
-						threads[ind].Start();
+					// for (int ind = 0; ind < numThreads; ind++)
+					// 	threads[ind].Start();
 
 					// we wait
                     await Task.WhenAll(threads);
@@ -148,7 +148,8 @@ namespace RunReport
 			Console.Out.WriteLine("Time per report: {0}", perfCounters.numReports == 0 ? "n/a" : "" + TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / perfCounters.numReports));
 			Console.Out.WriteLine("Pages/report: " + (perfCounters.numReports == 0 ? "n/a" : "" + perfCounters.numPages / perfCounters.numReports));
 			Console.Out.WriteLine("Pages/sec: {0:N2}", perfCounters.numPages / elapsed.TotalSeconds);
-			if (multiThreaded)
+			Console.Out.WriteLine("Errors: " + perfCounters.numErrors);
+            if (multiThreaded)
 				Console.Out.WriteLine("Below values are totaled across all threads (and so add up to more than the elapsed time)");
 			Console.Out.WriteLine($"  Process: {perfCounters.timeProcess}");
 		}
@@ -176,8 +177,18 @@ namespace RunReport
 				while (HasNextReport)
 				{
 					Console.Out.Write($"{threadNum}.");
-					PerfCounters pc = await RunOneReport(cmdLine, false);
-					perfCounters.Add(pc);
+                    PerfCounters pc = null;
+                    try
+                    {
+                        pc = await RunOneReport(cmdLine, false);
+                    }
+                    catch (Exception e)
+                    {
+                        pc = new PerfCounters();
+                        pc.numErrors = 1;
+                    }
+
+                    perfCounters.Add(pc);
 				}
 			}
 		}
@@ -215,10 +226,9 @@ namespace RunReport
 						if (!cmdLine.IsPerformance)
 						{
 							if (string.IsNullOrEmpty(dsInfo.SchemaFilename))
-								Console.Out.WriteLine(string.Format("XPath 2.0 datasource: {0}", dsInfo.Filename));
+								Console.Out.WriteLine($"XPath 2.0 datasource: {dsInfo.Filename}");
 							else
-								Console.Out.WriteLine(string.Format("XPath 2.0 datasource: {0}, schema {1}", dsInfo.Filename,
-									dsInfo.SchemaFilename));
+								Console.Out.WriteLine("XPath 2.0 datasource: {0}, schema {1}", dsInfo.Filename, dsInfo.SchemaFilename);
 						}
 
 						if (string.IsNullOrEmpty(dsInfo.SchemaFilename))
@@ -280,19 +290,21 @@ namespace RunReport
 			if (!cmdLine.IsPerformance)
 				Console.Out.WriteLine("Calling REST engine to start generating report");
 
+			// template.Properties.Add(new 
+   //              Property("pdf.PDF_UA", "true"));
+
 			// we have nothing else to do, so we wait till we get the result.
 			Document document = await client.PostDocument(template);
 			string guid = document.Guid;
 
 			if (!cmdLine.IsPerformance)
 				Console.Out.WriteLine($"REST Engine has accepted job {guid}");
-
 			// wait for it to complete
 			// instead of this you can use: template.Callback = "http://localhost/alldone/{guid}";
             HttpStatusCode status = await client.GetDocumentStatus(guid);
-            while (status == HttpStatusCode.Created || status == HttpStatusCode.Accepted)
+            while (status == HttpStatusCode.Created || status == HttpStatusCode.Accepted || status == HttpStatusCode.NotFound)
             {
-                await Task.Delay(100);
+                await Task.Delay(1000);
                 status = await client.GetDocumentStatus(guid);
             }
 
@@ -312,9 +324,12 @@ namespace RunReport
 			PrintVerify(document);
 
 			// save
-			if (document.Data != null)
-				File.WriteAllBytes(cmdLine.ReportFilename, document.Data);
-			else
+            if (document.Data != null)
+            {
+                await using var outputStream = cmdLine.GetOutputStream();
+                await outputStream.WriteAsync(document.Data);
+            }
+            else
 			{
 				{
 					string prefix = Path.GetFileNameWithoutExtension(cmdLine.ReportFilename);
@@ -957,13 +972,15 @@ namespace RunReport
 		internal TimeSpan timeProcess;
 		internal int numReports;
 		internal int numPages;
+        public int numErrors;
 
-		public void Add(PerfCounters pc)
+        public void Add(PerfCounters pc)
 		{
 			timeProcess += pc.timeProcess;
 			numReports += pc.numReports;
 			numPages += pc.numPages;
-		}
+			numErrors += pc.numErrors;
+        }
 	}
 
 	/// <summary>
