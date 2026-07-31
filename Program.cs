@@ -330,9 +330,16 @@ namespace RunReport
             }
 
             // delete it off the server
-            await client.DeleteDocument(guid);
+            try
+            {
+                await client.DeleteDocument(guid);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine($"REST Engine has failed to delete job {guid} with exception {e.Message}");
+            }
 
-			if (!cmdLine.IsPerformance)
+            if (!cmdLine.IsPerformance)
 				Console.Out.WriteLine($"REST Engine has completed job {document.Guid}");
 
 			perfCounters.timeProcess = DateTime.Now - startTime;
