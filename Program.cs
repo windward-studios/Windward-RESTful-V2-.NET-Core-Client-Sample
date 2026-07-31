@@ -15,6 +15,8 @@ using System.Collections;
 using System.Configuration;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +43,11 @@ namespace RunReport
 			if ((!url.EndsWith("/")) && (!url.EndsWith("\\")))
 				url += "/";
 			Console.Out.WriteLine($"Connecting to URL {url}");
-			client = new WindwardClient(new Uri(url));
+            var uri = new Uri(url);
+			var httpClient = new HttpClient();
+			httpClient.BaseAddress = uri;
+			httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            client = new WindwardClient(httpClient);
 			VersionInfo version = await client.GetVersion();
 			string licenseKey = ConfigurationManager.AppSettings["licenseKey"];
             if (string.IsNullOrEmpty(licenseKey) || licenseKey.Equals("[LICENSEKEY]"))
@@ -307,12 +313,24 @@ namespace RunReport
                 await Task.Delay(1000);
                 status = await client.GetDocumentStatus(guid);
             }
+			if (status != HttpStatusCode.Found)
+			{
+				Console.Error.WriteLine($"REST Engine has failed job {guid} with status {status}");
+				return perfCounters;
+            }
 
-			// we have nothing else to do, so we wait till we get the result.
-			document = await client.GetDocument(guid);
+            // we have nothing else to do, so we wait till we get the result.
+            try
+            {
+                document = await client.GetDocument(guid);
+            } catch (Exception e)
+			{
+				Console.Error.WriteLine($"REST Engine has failed job {guid} with exception {e.Message}");
+                throw;
+            }
 
-			// delete it off the server
-			await client.DeleteDocument(guid);
+            // delete it off the server
+            await client.DeleteDocument(guid);
 
 			if (!cmdLine.IsPerformance)
 				Console.Out.WriteLine($"REST Engine has completed job {document.Guid}");
@@ -321,7 +339,8 @@ namespace RunReport
 			perfCounters.numPages = document.NumberOfPages;
 			perfCounters.numReports = 1;
 
-			PrintVerify(document);
+			if(!cmdLine.IsPerformance)
+			    PrintVerify(document);
 
 			// save
             if (document.Data != null)
@@ -340,7 +359,8 @@ namespace RunReport
 						string filename = Path.Combine(directory, prefix + "_" + fileNumber + extension);
 						filename = Path.GetFullPath(filename);
 						File.WriteAllBytes(filename, document.Pages[fileNumber]);
-						Console.Out.WriteLine("  document page written to " + filename);
+						if(!cmdLine.IsPerformance)
+						    Console.Out.WriteLine("  document page written to " + filename);
 					}
 				}
 			}
